@@ -69,7 +69,7 @@ def read_data_split_and_search():
     metric_to_optimize = "MAP"
     cutoff_to_optimize = 10
 
-    n_cases = 10
+    n_cases = 50
     n_random_starts = int(n_cases / 3)
 
     evaluator_validation = EvaluatorHoldout(URM_validation, cutoff_list=cutoff_list)
@@ -77,6 +77,7 @@ def read_data_split_and_search():
 
     runParameterSearch_Collaborative_partial = partial(runHyperparameterSearch_Collaborative,
                                                        URM_train=URM_train,
+                                                       URM_train_last_test=URM_train_validation,
                                                        metric_to_optimize=metric_to_optimize,
                                                        cutoff_to_optimize=cutoff_to_optimize,
                                                        n_cases=n_cases,
@@ -86,7 +87,7 @@ def read_data_split_and_search():
                                                        evaluator_test=evaluator_test,
                                                        output_folder_path=output_folder_path,
                                                        resume_from_saved=True,
-                                                       similarity_type_list=["cosine"],
+                                                       similarity_type_list=None,
                                                        parallelizeKNN=False)
 
     pool = multiprocessing.Pool(processes=int(multiprocessing.cpu_count()), maxtasksperchild=1)
