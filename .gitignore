@@ -1,7 +1,10 @@
 .DS_Store
 .idea
-.idea
 .ipynb_checkpoints
 __pycache__/
 submission.csv
 Cython/
+result_experiments
+requirements.txt
+_requirements.txt
+Data_manager_split_datasets
