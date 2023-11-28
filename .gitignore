@@ -5,6 +5,8 @@ __pycache__/
 submission.csv
 Cython/
 result_experiments
+result_experiments_old
+*.db
 requirements.txt
 _requirements.txt
 Data_manager_split_datasets
