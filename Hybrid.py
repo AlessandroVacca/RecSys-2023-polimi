@@ -2,11 +2,11 @@ import numpy as np
 
 from Recommenders.BaseRecommender import BaseRecommender
 from Recommenders.GraphBased.RP3betaRecommender import RP3betaRecommender
-from Recommenders.KNN.UserKNNCFRecommender import UserKNNCFRecommender
 from Recommenders.SLIM.SLIMElasticNetRecommender import SLIMElasticNetRecommender
 
 from numpy import linalg as LA
 import scipy.sparse as sps
+
 
 # Custom Hybrid class
 
@@ -32,7 +32,7 @@ class HybridRecommender(BaseRecommender):
 
             interactions = len(self.URM_train[user_id_array[i], :].indices)
 
-            if interactions < 8:
+            if interactions < 5:
                 w = self.RP3_recommender._compute_item_score(user_id_array[i], items_to_compute)
                 item_weights[i, :] = w
             else:
@@ -73,8 +73,6 @@ class LinearHybridRecommender(BaseRecommender):
         return result
 
 
-
-
 class DifferentLossScoresHybridRecommender(BaseRecommender):
     """ ScoresHybridRecommender
     Hybrid of two prediction scores R = R1/norm*alpha + R2/norm*(1-alpha) where R1 and R2 come from
@@ -113,7 +111,48 @@ class DifferentLossScoresHybridRecommender(BaseRecommender):
                 "Norm {} of item weights for recommender 2 is zero. Avoiding division by zero".format(self.norm))
 
         item_weights = item_weights_1 / norm_item_weights_1 * self.alpha + item_weights_2 / norm_item_weights_2 * (
-                    1 - self.alpha)
+                1 - self.alpha)
 
         return item_weights
 
+
+class MajVotHybridRecommender(BaseRecommender):
+    RECOMMENDER_NAME = "MajorityVotingHybrid"
+
+    def __init__(self, URM_train, recommenders):
+        super(MajVotHybridRecommender, self).__init__(URM_train)
+        self.recommenders = recommenders
+
+    def fit(self):
+        # Fit each individual recommender
+        for recommender in self.recommenders:
+            recommender.fit()
+
+    def _compute_item_score(self, user_id_array, items_to_compute=None):
+        """
+        Computes the score for each item for the given users.
+
+        :param user_id_array: array containing the user indices whose recommendations need to be computed
+        :param items_to_compute: array containing the items whose scores are to be computed.
+                                 If None, all items are computed.
+        :return: array (len(user_id_array), n_items) with the score.
+        """
+        # Initialize an array to store the aggregated votes
+        aggregated_votes = None
+
+        # Iterate over each recommender
+        for recommender in self.recommenders:
+            # Compute scores for each recommender
+            scores = recommender._compute_item_score(user_id_array, items_to_compute)
+
+            # Initialize the aggregated_votes array with the shape of scores from the first recommender
+            if aggregated_votes is None:
+                aggregated_votes = np.zeros_like(scores)
+
+            # Convert scores to binary votes (1 for recommended items, 0 otherwise)
+            recommender_votes = scores > 0
+            aggregated_votes += recommender_votes
+
+        return aggregated_votes
+
+    # Other methods of the class
