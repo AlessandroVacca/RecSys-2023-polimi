@@ -73,6 +73,41 @@ class LinearHybridRecommender(BaseRecommender):
         return result
 
 
+class LinearZScoreNormalizedHybridRecommender(BaseRecommender):
+    RECOMMENDER_NAME = "LinearZScoreNormalizedHybridRecommender"
+
+    def __init__(self, URM_train, recommenders: list, verbose=True):
+        self.RECOMMENDER_NAME = ''
+        for recommender in recommenders:
+            self.RECOMMENDER_NAME = self.RECOMMENDER_NAME + recommender.RECOMMENDER_NAME[:-11]
+        self.RECOMMENDER_NAME = self.RECOMMENDER_NAME + 'ZScoreNormHybridRecommender'
+
+        super(LinearZScoreNormalizedHybridRecommender, self).__init__(URM_train, verbose=verbose)
+
+        self.recommenders = recommenders
+
+    def fit(self, alphas=None):
+        self.alphas = alphas
+        self.mean_predictions = []
+        self.std_predictions = []
+
+        # Fit each individual recommender
+        for recommender in self.recommenders:
+            # Compute mean and standard deviation of predictions
+            predictions = recommender._compute_item_score(np.arange(self.URM_train.shape[0]))
+            self.mean_predictions.append(np.mean(predictions))
+            self.std_predictions.append(np.std(predictions))
+
+    def _compute_item_score(self, user_id_array, items_to_compute=None):
+        result = self.alphas[0] * self.normalize_predictions(self.recommenders[0]._compute_item_score(user_id_array, items_to_compute), 0)
+        for index in range(1, len(self.alphas)):
+            result = result + self.alphas[index] * self.normalize_predictions(self.recommenders[index]._compute_item_score(user_id_array, items_to_compute), index)
+        return result
+
+    def normalize_predictions(self, predictions, index):
+        # Apply z-score normalization using mean and std of predictions from each recommender
+        return (predictions - self.mean_predictions[index]) / self.std_predictions[index]
+
 class DifferentLossScoresHybridRecommender(BaseRecommender):
     """ ScoresHybridRecommender
     Hybrid of two prediction scores R = R1/norm*alpha + R2/norm*(1-alpha) where R1 and R2 come from
