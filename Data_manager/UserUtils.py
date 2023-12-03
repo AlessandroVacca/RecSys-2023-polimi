@@ -1,29 +1,39 @@
-def getURM_all():
+def getURM_all(remove_users_with_more_than_iterations=None):
     import pandas as pd
+    import scipy.sparse as sps
+
     URM_path = "data_train.csv"
     URM_all_dataframe = pd.read_csv(filepath_or_buffer=URM_path,
                                     sep=",",
-                                    # header=None,
                                     dtype={0: int, 1: int, 2: int},
                                     engine='python')
 
     URM_all_dataframe.columns = ["UserID", "ItemID", "Interaction"]
-    import scipy.sparse as sps
 
+    # Mapping user and item IDs to indices
     mapped_id, original_id = pd.factorize(URM_all_dataframe["UserID"].unique())
     user_original_ID_to_index = pd.Series(mapped_id, index=original_id)
 
     mapped_id, original_id = pd.factorize(URM_all_dataframe["ItemID"].unique())
     item_original_ID_to_index = pd.Series(mapped_id, index=original_id)
 
+    # Mapping original IDs to indices in the DataFrame
     URM_all_dataframe["UserID"] = URM_all_dataframe["UserID"].map(user_original_ID_to_index)
     URM_all_dataframe["ItemID"] = URM_all_dataframe["ItemID"].map(item_original_ID_to_index)
-    n_users = len(URM_all_dataframe["UserID"].unique())
-    n_items = len(URM_all_dataframe["ItemID"].unique())
 
+    # Creating the URM matrix
+    n_users = len(user_original_ID_to_index)
+    n_items = len(item_original_ID_to_index)
     URM_all = sps.csr_matrix((URM_all_dataframe["Interaction"].values,
                               (URM_all_dataframe["UserID"].values, URM_all_dataframe["ItemID"].values)),
                              shape=(n_users, n_items))
+
+    # Remove users with more than a specified number of iterations
+    if remove_users_with_more_than_iterations is not None:
+        user_interactions = URM_all.sum(axis=1).A1  # Get sum of interactions per user
+        users_to_keep = user_interactions <= remove_users_with_more_than_iterations
+        URM_all = URM_all[users_to_keep, :]  # Filter out users
+
     return URM_all
 
 def generateSubmission(recommender, top_recommender):
