@@ -89,7 +89,7 @@ def split_train_in_two_percentage_user_wise(URM_train, train_percentage = 0.1, v
 
 
 def split_train_in_two_percentage_global_sample(URM_all, train_percentage = 0.1):
-    """
+    """r output layer
     The function splits an URM in two matrices selecting the number of interactions globally
     :param URM_all:
     :param train_percentage:
@@ -144,6 +144,56 @@ def split_train_in_two_percentage_global_sample(URM_all, train_percentage = 0.1)
 
 
     return URM_train, URM_validation
+
+
+def split_train_global_sample_k_fold_generator(URM_all, k=5):
+    """Generate k-fold train-validation splits of the URM
+
+    :param URM_all: Input URM
+    :param k: Number of folds
+    :return: Generator yielding train-validation pairs for each fold
+    """
+    assert k > 1, "Number of folds (k) must be greater than 1"
+
+    num_users, num_items = URM_all.shape
+
+    indices_for_sampling = np.arange(0, URM_all.nnz, dtype=np.int_)
+    np.random.shuffle(indices_for_sampling)
+
+    fold_size = URM_all.nnz // k
+
+    for fold in range(k):
+        start_idx = fold * fold_size
+        end_idx = start_idx + fold_size if fold < k - 1 else URM_all.nnz
+
+        fold_indices = indices_for_sampling[start_idx:end_idx]
+
+        URM_train_builder = IncrementalSparseMatrix(n_rows=num_users, n_cols=num_items, auto_create_col_mapper=False,
+                                                    auto_create_row_mapper=False)
+        URM_validation_builder = IncrementalSparseMatrix(n_rows=num_users, n_cols=num_items,
+                                                         auto_create_col_mapper=False, auto_create_row_mapper=False)
+
+        validation_indices = indices_for_sampling[start_idx:end_idx]
+        train_indices = np.concatenate((indices_for_sampling[:start_idx], indices_for_sampling[end_idx:]))
+
+        train_rows, train_cols = URM_all.nonzero()
+        train_data = URM_all.data
+
+        URM_train_builder.add_data_lists(train_rows[train_indices],
+                                         train_cols[train_indices],
+                                         train_data[train_indices])
+
+        URM_validation_builder.add_data_lists(train_rows[validation_indices],
+                                              train_cols[validation_indices],
+                                              train_data[validation_indices])
+
+        URM_train = URM_train_builder.get_SparseMatrix()
+        URM_validation = URM_validation_builder.get_SparseMatrix()
+
+        URM_train = sps.csr_matrix(URM_train)
+        URM_validation = sps.csr_matrix(URM_validation)
+
+        yield URM_train, URM_validation
 
 
 
