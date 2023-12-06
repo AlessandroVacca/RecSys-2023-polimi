@@ -19,16 +19,13 @@ class XGBoostTrain(BaseRecommender):
 
         self.recommenders = recommenders
         self.XGB_model = XGB_model
-
-    def fit(self, cutoff=35, pruner=None):
-
         n_users, n_items = self.URM_train.shape
         training_dataframe = pd.DataFrame(index=range(0, n_users), columns=["ItemID"])
         training_dataframe.index.name = 'UserID'
         training_dataframe = training_dataframe.explode("ItemID")
         print("CREATING THE DATAFRAME")
         for user_id in tqdm.tqdm(range(n_users)):
-            recommendations = self.recommenders["SLIM_ELASTIC"].recommend(user_id, cutoff=cutoff)
+            recommendations = self.recommenders["SLIM_ELASTIC"].recommend(user_id, cutoff=35)
             training_dataframe.loc[user_id, "ItemID"] = recommendations
 
         training_dataframe = training_dataframe.explode("ItemID")
@@ -48,15 +45,14 @@ class XGBoostTrain(BaseRecommender):
 
         for user_id in tqdm.tqdm(range(n_users)):
             for rec_label, rec_instance in self.recommenders.items():
-
                 item_list = training_dataframe.loc[user_id, "ItemID"].values.tolist()
 
-                all_item_scores = rec_instance._compute_item_score([user_id], items_to_compute = item_list)
+                all_item_scores = rec_instance._compute_item_score([user_id], items_to_compute=item_list)
 
                 training_dataframe.loc[user_id, rec_label] = all_item_scores[0, item_list]
 
         training_dataframe = training_dataframe.reset_index()
-        training_dataframe = training_dataframe.rename(columns = {"index": "UserID"})
+        training_dataframe = training_dataframe.rename(columns={"index": "UserID"})
 
         item_popularity = np.ediff1d(sps.csc_matrix(self.URM_train).indptr)
         training_dataframe['item_popularity'] = item_popularity[training_dataframe["ItemID"].values.astype(int)]
@@ -65,19 +61,21 @@ class XGBoostTrain(BaseRecommender):
         training_dataframe['user_profile_len'] = user_popularity[training_dataframe["UserID"].values.astype(int)]
         training_dataframe = training_dataframe.sort_values("UserID").reset_index()
         training_dataframe.drop(columns=['index'], inplace=True)
-        groups = training_dataframe.groupby("UserID").size().values
+        self.groups = training_dataframe.groupby("UserID").size().values
 
-        print("START TRAINING XGBOOSS")
-
+        #print("STARTED TRAINING XGBOOST")
 
         training_dataframe.ItemID = training_dataframe.ItemID.astype("int64")
 
-        X_train = training_dataframe.drop(columns=["Label", "UserID", "ItemID"])
-        y_train = training_dataframe["Label"]
+        self.X_train = training_dataframe.drop(columns=["Label", "UserID", "ItemID"])
+        self.y_train = training_dataframe["Label"]
+        print("DF LOADING END")
 
-        self.XGB_model.fit(X_train,
-                      y_train,
-                      group=groups,
+    def fit(self, cutoff=35, pruner=None, XGB_model=None):
+        self.XGB_model = XGB_model
+        self.XGB_model.fit(self.X_train,
+                      self.y_train,
+                      group = self.groups,
                       verbose=True,
                       callbacks=pruner)
     def _compute_item_score(self, user_id_array, items_to_compute=None):
