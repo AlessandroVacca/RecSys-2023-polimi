@@ -52,18 +52,17 @@ class _BaseLightFMWrapper(BaseRecommender, Incremental_Training_Early_Stopping):
             items_to_compute = np.array(items_to_compute)
             # item_features = self.ICM_train[items_to_compute,:] if self.ICM_train is not None else None
 
-        item_scores = - np.ones((len(user_id_array), self.n_items)) * np.inf
-        # user_features = self.UCM_train[user_id_array,:] if self.UCM_train is not None else None
+        user_ids_batch = np.repeat(user_id_array, len(items_to_compute))
+        items_batch = np.tile(items_to_compute, len(user_id_array))
 
+        predicted_scores = self.lightFM_model.predict(
+            user_ids_batch,
+            items_batch,
+            item_features=self.ICM_train,
+            user_features=self.UCM_train
+        )
 
-        for user_index, user_id in enumerate(user_id_array):
-            # try:
-            item_scores[user_index,items_to_compute] = self.lightFM_model.predict(int(user_id),
-                                                                                 items_to_compute,
-                                                                                 item_features = self.ICM_train,
-                                                                                 user_features = self.UCM_train)
-            # except:
-            #     print(user_id)
+        item_scores = predicted_scores.reshape(len(user_id_array), len(items_to_compute))
 
         return item_scores
 
