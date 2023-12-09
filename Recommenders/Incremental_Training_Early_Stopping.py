@@ -112,7 +112,7 @@ class Incremental_Training_Early_Stopping(object):
     def _train_with_early_stopping(self, epochs_max, epochs_min = 0,
                                    validation_every_n = None, stop_on_validation = False,
                                    validation_metric = None, lower_validations_allowed = None, evaluator_object = None,
-                                   algorithm_name = "Incremental_Training_Early_Stopping"):
+                                   algorithm_name = "Incremental_Training_Early_Stopping", callbacks_epoch = None, callback_validation = None):
         """
 
         :param epochs_max:                  max number of epochs the training will last
@@ -186,6 +186,7 @@ class Incremental_Training_Early_Stopping(object):
         start_time = time.time()
 
         self.best_validation_metric = None
+        self.current_validation_metric = None
         lower_validatons_count = 0
         convergence = False
 
@@ -201,7 +202,7 @@ class Incremental_Training_Early_Stopping(object):
             # If no validation required, always keep the latest
             if evaluator_object is None:
 
-                self.epochs_best = epochs_current +1
+                self.epochs_best = epochs_current + 1
 
             # Determine whether a validaton step is required
             elif (epochs_current + 1) % validation_every_n == 0:
@@ -218,7 +219,10 @@ class Incremental_Training_Early_Stopping(object):
 
                 current_metric_value = results_run.iloc[0][validation_metric]
 
-                print("{}: {}".format(algorithm_name, results_run_string))
+                callback_validation(current_metric_value)
+
+                # print("{}: {}".format(algorithm_name, results_run_string))
+                print("{}: {}".format(algorithm_name, results_run["MAP"]))
 
                 # Update optimal model
                 if not np.isfinite(current_metric_value):
@@ -228,6 +232,7 @@ class Incremental_Training_Early_Stopping(object):
 
                     assert False, "{}: metric value is not a finite number, terminating!".format(self.RECOMMENDER_NAME)
 
+                self.current_validation_metric = current_metric_value
 
                 if self.best_validation_metric is None or self.best_validation_metric < current_metric_value:
 
@@ -254,7 +259,9 @@ class Incremental_Training_Early_Stopping(object):
 
             elapsed_time = time.time() - start_time
             new_time_value, new_time_unit = seconds_to_biggest_unit(elapsed_time)
-
+            if callbacks_epoch is not None:
+                for callback in callbacks_epoch:
+                    callback(self)
             print("{}: Epoch {} of {}. Elapsed time {:.2f} {}".format(
                 algorithm_name, epochs_current+1, epochs_max, new_time_value, new_time_unit))
 
