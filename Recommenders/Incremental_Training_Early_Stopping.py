@@ -218,8 +218,8 @@ class Incremental_Training_Early_Stopping(object):
                 self._update_validation_summary_table(epochs_current, results_run)
 
                 current_metric_value = results_run.iloc[0][validation_metric]
-
-                callback_validation(current_metric_value)
+                if callback_validation is not None:
+                    callback_validation(current_metric_value)
 
                 # print("{}: {}".format(algorithm_name, results_run_string))
                 print("{}: {}".format(algorithm_name, results_run["MAP"]))
