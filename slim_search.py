@@ -58,16 +58,16 @@ top_pop = TopPop(URM_all)
 top_pop.fit()
 i = 0
 while 1:
-    print("current iteration is:" + str(i))
-    # slim = SLIMElasticNetRecommender(URM_all)
-    slim = MultiThreadSLIM_SLIMElasticNetRecommender(URM_all)
-    slim.fit(topK=8894, l1_ratio=0.05565733019999427, alpha=0.0012979360257937668, workers=7)
+    print("current iteration is: " + str(i))
+    slim = SLIMElasticNetRecommender(URM_all)
+    #slim = MultiThreadSLIM_SLIMElasticNetRecommender(URM_all)
+    slim.fit(topK=8894, l1_ratio=0.05565733019999427, alpha=0.0012979360257937668)#, workers=8)
     URM_try = getTarget(slim, top_pop)
 
     df = URM_try.compare(df_target)
 
-    val = df['item_list'].count()
-    print("current diffs:" + val)
+    val = df['item_list'].notna().sum().self
+    print("current diffs:" + str(val))
     i += 1
     if val == 0:
         np.save(slim.W_sparse, "W_sparse.npy")
