@@ -69,7 +69,7 @@ while 1:
     val = df['item_list'].notna().sum().self
     print("current diffs:" + str(val))
     i += 1
-    if val == 0:
-        np.save(slim.W_sparse, "W_sparse.npy")
+    if val < 20:
+        np.save(slim.W_sparse, f"W_sparse_{val}.npy")
         print(slim.W_sparse)
         break
