@@ -20,12 +20,13 @@ class HybridRecommender(BaseRecommender):
         super(HybridRecommender, self).__init__(URM_train)
 
     def fit(self):
-        self.slim_recommender = MultiThreadSLIM_SLIMElasticNetRecommender(self.URM_train)
+        self.slim_recommender = SLIMElasticNetRecommender(self.URM_train)
         self.RP3_recommender = RP3betaRecommender(self.URM_train)
         self.userknn_recommender = UserKNNCFRecommender(self.URM_train)
         self.P3_recommender = P3alphaRecommender(self.URM_train)
         self.itemknn_recommender = ItemKNNCFRecommender(self.URM_train)
-        self.slim_recommender.fit(topK=8894, l1_ratio=0.05565733019999427, alpha=0.0012979360257937668, workers = 7)
+        self.slim_recommender.load_model(folder_path="slim_models", file_name="slim_24.zip")
+        #self.slim_recommender.fit(topK=8894, l1_ratio=0.05565733019999427, alpha=0.0012979360257937668, workers = 7)
         #self.RP3_recommender.fit(topK=101, alpha=0.3026342852596128, beta=0.058468783118329024)
         self.userknn_recommender.fit(topK=469, shrink=38, similarity='asymmetric', normalize=True,
                                        feature_weighting='TF-IDF', asymmetric_alpha=0.40077406933762383)
@@ -33,7 +34,7 @@ class HybridRecommender(BaseRecommender):
         self.itemknn_recommender.fit(topK=31, shrink=435, similarity='tversky', normalize=True,
                                        feature_weighting='BM25', tversky_alpha=0.17113169506422393, tversky_beta=0.5684024974085575)
         hybrid_linear = LinearHybridRecommender(self.URM_train, [self.slim_recommender, self.P3_recommender, self.itemknn_recommender])
-        hybrid_linear.fit([0.9156068194320912, 0.817561194412642, 0.6931684679976798])
+        hybrid_linear.fit([0.7427681295509623, 0.758798462606664, 0.18233978972481513])
 
 
     def save_model(self, folder_path, file_name=None):
@@ -49,11 +50,11 @@ class HybridRecommender(BaseRecommender):
             if interactions == 1:
                 w = self.userknn_recommender._compute_item_score(user_id_array[i], items_to_compute)
                 item_weights[i, :] = w
-            if interactions >= 2 & interactions < 200:
+            if interactions >= 2 & interactions < 250:
                 w = self.slim_recommender._compute_item_score(user_id_array[i], items_to_compute)
                 item_weights[i, :] = w
             else:
-                w = self.P3_recommender._compute_item_score(user_id_array[i], items_to_compute)
+                w = self.hybrid_linear._compute_item_score(user_id_array[i], items_to_compute)
                 item_weights[i, :] = w
 
         return item_weights
