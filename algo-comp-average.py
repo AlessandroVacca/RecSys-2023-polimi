@@ -1,6 +1,7 @@
 from Data_manager.UserUtils import *
 from Data_manager.split_functions.split_train_validation_random_holdout import \
     split_train_in_two_percentage_global_sample
+from Hybrid import LinearHybridRecommender
 from Recommenders.NonPersonalizedRecommender import TopPop
 from Recommenders.KNN.UserKNNCFRecommender import UserKNNCFRecommender
 from Recommenders.KNN.ItemKNNCFRecommender import ItemKNNCFRecommender
@@ -54,6 +55,10 @@ for index in range(1, 100):
                                              feature_weighting='BM25', tversky_alpha=0.17113169506422393,
                                              tversky_beta=0.5684024974085575)
 
+    rec_set = [recommender_object_dict["SLIM_ELASTIC"], recommender_object_dict["P3alpha"],
+               recommender_object_dict["ItemKNNCF"]]
+    recommender_object_dict["hybrid"] = LinearHybridRecommender(URM_train_validation, rec_set)
+    recommender_object_dict["hybrid"].fit([0.9156068194320912, 0.817561194412642, 0.6931684679976798])
 
     MAP_recommender_per_group = {}
     cutoff = 10
