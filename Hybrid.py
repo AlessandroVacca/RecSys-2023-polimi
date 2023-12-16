@@ -209,3 +209,35 @@ class MajVotHybridRecommender(BaseRecommender):
         return aggregated_votes
 
     # Other methods of the class
+
+
+class ScoresHybridRecommender(BaseRecommender):
+    """ ScoresHybridRecommender
+    Hybrid of two prediction scores R = R1*alpha + R2*(1-alpha)
+
+    """
+
+    RECOMMENDER_NAME = "ScoresHybridRecommender"
+
+    def __init__(self, URM_train, recommender_1, recommender_2, recommender_3, verbose=True):
+        super(ScoresHybridRecommender, self).__init__(URM_train, verbose=verbose)
+
+        self.URM_train = sps.csr_matrix(URM_train)
+        self.recommender_1 = recommender_1
+        self.recommender_2 = recommender_2
+        self.recommender_3 = recommender_3
+
+    def fit(self, alpha=0.5, beta=0.5):
+        self.alpha = alpha
+        self.beta = beta
+
+    def _compute_item_score(self, user_id_array, items_to_compute=None):
+        # In a simple extension this could be a loop over a list of pretrained recommender objects
+        item_weights_1 = self.recommender_1._compute_item_score(user_id_array)
+        item_weights_2 = self.recommender_2._compute_item_score(user_id_array)
+        item_weights_3 = self.recommender_3._compute_item_score(user_id_array)
+
+        item_weights = item_weights_1 * self.alpha + item_weights_2 * self.beta + item_weights_3 * (
+                    1 - self.alpha - self.beta)
+
+        return item_weights
