@@ -36,7 +36,7 @@ class XgBoostEnsembler(BaseRecommender):
         self.recommenders_generate_data = recommenders_generate_data
         self.training_dataframe = None
 
-    def _init_XGB_model(self, **xgb_ranker_params)
+    def _init_XGB_model(self, **xgb_ranker_params):
         """
         Initializes the XGBoost model with predefined parameters.
 
@@ -44,7 +44,7 @@ class XgBoostEnsembler(BaseRecommender):
         XGBRanker: The initialized XGBoost model.
         """
         return XGBRanker(
-            **xgb_ranker_params,
+            **xgb_ranker_params
 
             # eta=0.0506,
             # booster="gbtree",
@@ -52,7 +52,7 @@ class XgBoostEnsembler(BaseRecommender):
             # gamma=0.09822,
             # min_child_weight=7.0,
             # tree_method="hist",
-            verbosity=1,
+            # verbosity=1,
             # max_depth=3, learning_rate=0.1, n_estimators=100,
             # silent=True, objective="rank:pairwise", booster='gbtree',
             # n_jobs=-1, nthread=None, gamma=0, min_child_weight=1, max_delta_step=0,
@@ -146,11 +146,11 @@ class XgBoostEnsembler(BaseRecommender):
         training_dataframe["ItemID"] = training_dataframe["ItemID"].astype('int64')
         return training_dataframe
 
-    def fit(self, plot=False, prepare_training_df=True):
+    def fit(self, xgb_ranker_params, plot=False, prepare_training_df=True):
         """
         Trains the XGBoost model.
         """
-        self.XGB_model = self._init_XGB_model()
+        self.XGB_model = self._init_XGB_model(**xgb_ranker_params)
         if prepare_training_df or self.training_dataframe is None:
             n_users, n_items = self.URM_train.shape
             training_dataframe = self._create_training_dataframe(range(n_users))
