@@ -1,10 +1,13 @@
 import numpy as np
 
 from Recommenders.BaseRecommender import BaseRecommender
+from Recommenders.EASE_R.EASE_R_Recommender import EASE_R_Recommender
 from Recommenders.GraphBased.P3alphaRecommender import P3alphaRecommender
 from Recommenders.GraphBased.RP3betaRecommender import RP3betaRecommender
 from Recommenders.KNN.ItemKNNCFRecommender import ItemKNNCFRecommender
 from Recommenders.KNN.UserKNNCFRecommender import UserKNNCFRecommender
+from Recommenders.MatrixFactorization.IALSRecommender import IALSRecommender
+from Recommenders.Neural.MultVAERecommender import MultVAERecommender
 from Recommenders.SLIM.SLIMElasticNetRecommender import *
 
 from numpy import linalg as LA
@@ -18,23 +21,37 @@ class HybridRecommender(BaseRecommender):
 
     def __init__(self, URM_train):
         super(HybridRecommender, self).__init__(URM_train)
-
-    def fit(self):
         self.slim_recommender = SLIMElasticNetRecommender(self.URM_train)
         self.RP3_recommender = RP3betaRecommender(self.URM_train)
         self.userknn_recommender = UserKNNCFRecommender(self.URM_train)
         self.P3_recommender = P3alphaRecommender(self.URM_train)
         self.itemknn_recommender = ItemKNNCFRecommender(self.URM_train)
-        self.slim_recommender.load_model(folder_path="slim_models", file_name="slim_24.zip")
-        #self.slim_recommender.fit(topK=8894, l1_ratio=0.05565733019999427, alpha=0.0012979360257937668, workers = 7)
-        #self.RP3_recommender.fit(topK=101, alpha=0.3026342852596128, beta=0.058468783118329024)
+        self.MV_recommender = MultVAERecommender(self.URM_train)
+        self.ials_recommender = IALSRecommender(self.URM_train)
+        self.ease_recommender = EASE_R_Recommender(self.URM_train)
+
+    def fit(self):
+        if self.URM_train.shape[0] == 22222:
+            self.slim_recommender.load_model(folder_path="slim_models", file_name="slim_24.zip")
+        else:
+            self.slim_recommender.fit(topK=8894, l1_ratio=0.05565733019999427, alpha=0.0012979360257937668)
+        self.RP3_recommender.fit(alpha=0.20026352123406477, beta=0.15999879728761354, topK=32)
         self.userknn_recommender.fit(topK=469, shrink=38, similarity='asymmetric', normalize=True,
                                        feature_weighting='TF-IDF', asymmetric_alpha=0.40077406933762383)
-        self.P3_recommender.fit(topK=76, alpha=0.377201600381895, normalize_similarity=True)
         self.itemknn_recommender.fit(topK=31, shrink=435, similarity='tversky', normalize=True,
                                        feature_weighting='BM25', tversky_alpha=0.17113169506422393, tversky_beta=0.5684024974085575)
-        hybrid_linear = LinearHybridRecommender(self.URM_train, [self.slim_recommender, self.P3_recommender, self.itemknn_recommender])
-        hybrid_linear.fit([0.7427681295509623, 0.758798462606664, 0.18233978972481513])
+        self.knn_recommender = TwoScoresHybridRecommender(self.URM_train, self.userknn_recommender, self.itemknn_recommender)
+        self.knn_recommender.fit(alpha=0.022195783788315104)
+        if self.URM_train.shape[0] == 22222:
+            self.ease_recommender.load_model(folder_path="slim_models", file_name="ease_all.zip")
+        else:
+            self.ease_recommender.fit(topK=24, l2_norm=37.54323189430143)
+        self.hybrid_one = ScoresHybridRecommender(self.URM_train, self.knn_recommender, self.MV_recommender, self.IALS_recommender)
+        self.hybrid_one.fit(alpha=0.7509279131476281,beta=0.028318614437090585)
+        self.hybrid_li = LinearHybridRecommender(self.URM_train, [self.slim_recommender, self.RP3_recommender, self.knn_recommender, self.ease_recommender])
+        self.hybrid_li.fit(alphas=[0.8857667100747117, 0.6379807942443021, 0.0690929184825888, 0.11953478623354052])
+        self.hybrid_hi = TwoScoresHybridRecommender(self.URM_train, self.slim_recommender, self.RP3_recommender)
+        self.hybrid_hi.fit(alpha=0.6201320790279279)
 
 
     def save_model(self, folder_path, file_name=None):
@@ -48,13 +65,13 @@ class HybridRecommender(BaseRecommender):
             interactions = len(self.URM_train[user_id_array[i], :].indices)
 
             if interactions == 1:
-                w = self.userknn_recommender._compute_item_score(user_id_array[i], items_to_compute)
+                w = self.hybrid_one._compute_item_score(user_id_array[i], items_to_compute)
                 item_weights[i, :] = w
-            if interactions >= 2 & interactions < 250:
-                w = self.slim_recommender._compute_item_score(user_id_array[i], items_to_compute)
+            elif interactions >= 2 & interactions <= 14:
+                w = self.hybrid_li._compute_item_score(user_id_array[i], items_to_compute)
                 item_weights[i, :] = w
             else:
-                w = self.hybrid_linear._compute_item_score(user_id_array[i], items_to_compute)
+                w = self.hybrid_hi._compute_item_score(user_id_array[i], items_to_compute)
                 item_weights[i, :] = w
 
         return item_weights
@@ -71,7 +88,7 @@ class LinearHybridRecommender(BaseRecommender):
         self.RECOMMENDER_NAME = ''
         for recommender in recommenders:
             self.RECOMMENDER_NAME = self.RECOMMENDER_NAME + recommender.RECOMMENDER_NAME[:-11]
-        self.RECOMMENDER_NAME = self.RECOMMENDER_NAME + 'HybridRecommender'
+        self.RECOMMENDER_NAME = self.RECOMMENDER_NAME + 'LinearHybridRecommender'
 
         super(LinearHybridRecommender, self).__init__(URM_train, verbose=verbose)
 
@@ -136,6 +153,11 @@ class DifferentLossScoresHybridRecommender(BaseRecommender):
     RECOMMENDER_NAME = "DifferentLossScoresHybridRecommender"
 
     def __init__(self, URM_train, recommender_1, recommender_2):
+        self.RECOMMENDER_NAME = ''
+        self.RECOMMENDER_NAME = self.RECOMMENDER_NAME + recommender_1.RECOMMENDER_NAME[:-11]
+        self.RECOMMENDER_NAME = self.RECOMMENDER_NAME + recommender_2.RECOMMENDER_NAME[:-11]
+        self.RECOMMENDER_NAME = self.RECOMMENDER_NAME + 'DifferentLossScoresHybridRecommender'
+
         super(DifferentLossScoresHybridRecommender, self).__init__(URM_train)
 
         self.URM_train = sps.csr_matrix(URM_train)
@@ -220,6 +242,12 @@ class ScoresHybridRecommender(BaseRecommender):
     RECOMMENDER_NAME = "ScoresHybridRecommender"
 
     def __init__(self, URM_train, recommender_1, recommender_2, recommender_3, verbose=True):
+        self.RECOMMENDER_NAME = ''
+        self.RECOMMENDER_NAME = self.RECOMMENDER_NAME + recommender_1.RECOMMENDER_NAME[:-11]
+        self.RECOMMENDER_NAME = self.RECOMMENDER_NAME + recommender_2.RECOMMENDER_NAME[:-11]
+        self.RECOMMENDER_NAME = self.RECOMMENDER_NAME + recommender_3.RECOMMENDER_NAME[:-11]
+        self.RECOMMENDER_NAME = self.RECOMMENDER_NAME + 'ScoresHybridRecommender'
+
         super(ScoresHybridRecommender, self).__init__(URM_train, verbose=verbose)
 
         self.URM_train = sps.csr_matrix(URM_train)
@@ -251,6 +279,11 @@ class TwoScoresHybridRecommender(BaseRecommender):
     RECOMMENDER_NAME = "TwoScoresHybridRecommender"
 
     def __init__(self, URM_train, recommender_1, recommender_2, verbose=True):
+        self.RECOMMENDER_NAME = ''
+        self.RECOMMENDER_NAME = self.RECOMMENDER_NAME + recommender_1.RECOMMENDER_NAME[:-11]
+        self.RECOMMENDER_NAME = self.RECOMMENDER_NAME + recommender_2.RECOMMENDER_NAME[:-11]
+        self.RECOMMENDER_NAME = self.RECOMMENDER_NAME + 'TwoScoresHybridRecommender'
+
         super(TwoScoresHybridRecommender, self).__init__(URM_train, verbose=verbose)
 
         self.URM_train = sps.csr_matrix(URM_train)
