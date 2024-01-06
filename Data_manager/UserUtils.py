@@ -1,3 +1,6 @@
+from Recommenders.NonPersonalizedRecommender import TopPop
+
+
 def getURM_all(remove_users_with_more_than_iterations=None):
     import pandas as pd
     import scipy.sparse as sps
@@ -36,8 +39,31 @@ def getURM_all(remove_users_with_more_than_iterations=None):
 
     return URM_all
 
-def generateSubmission(recommender, top_recommender):
+
+def get_user_id_to_index_mapper():
     import pandas as pd
+
+    URM_path = "data_train.csv"
+    URM_all_dataframe = pd.read_csv(filepath_or_buffer=URM_path,
+                                    sep=",",
+                                    dtype={0: int, 1: int, 2: int},
+                                    engine='python')
+
+    URM_all_dataframe.columns = ["UserID", "ItemID", "Interaction"]
+
+    mapped_id, original_id = pd.factorize(URM_all_dataframe["UserID"].unique())
+    user_original_ID_to_index = pd.Series(mapped_id, index=original_id)
+
+
+    return user_original_ID_to_index
+
+
+def generateSubmission(recommender, top_recommender = None):
+    import pandas as pd
+
+    if top_recommender is None:
+        top_recommender = TopPop(getURM_all())
+        top_recommender.fit()
 
     URM_path = "data_train.csv"
     URM_all_dataframe = pd.read_csv(filepath_or_buffer=URM_path,
