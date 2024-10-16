@@ -2,6 +2,7 @@
 Recommender Systems challenge at Polimi A.Y. 2023-2024, this is formally part of the Recommender Systems course by prof. Paolo Cremonesi.
 [Link](https://www.kaggle.com/c/recommender-system-2023-challenge-polimi/overview) to the challenge
 ## Challenge description
+The application domain was book recommendation. The datasets that were provided contained interactions of users with books, in particular, if the user attributed to the book a rating of at least 4. The main goal of the competition was to discover which items (books) a user will interact with. Thus, the challenge consisted in a pure collaborative filtering problem, since no ICM was provided. The evaluation metric was Mean Average Precision @ 10.
 
 ## Results
 
